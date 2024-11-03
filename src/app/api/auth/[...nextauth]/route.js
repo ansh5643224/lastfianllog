@@ -48,9 +48,10 @@ export const authOptions = {
           });
 
           const { data } = await response.json();
-          const userLists = data.Viewer?.mediaListOptions.animeList.customLists ?? [];
+          const userLists = data.Viewer?.mediaListOptions.animeList.customLists || [];
           const customLists = userLists.includes("Watched Via 1Anime") ? userLists : [...userLists, "Watched Via 1Anime"];
 
+          // Function to fetch GraphQL
           const fetchGraphQL = async (query, variables) => {
             const fetchResponse = await fetch("https://graphql.anilist.co/", {
               method: "POST",
@@ -68,14 +69,14 @@ export const authOptions = {
 
           if (!userLists.includes("Watched Via 1Anime")) {
             const modifiedLists = async (lists) => {
-              const setList = `
+              const setListMutation = `
                 mutation($lists: [String]){
                   UpdateUser(animeListOptions: { customLists: $lists }){
                     id
                   }
                 }
               `;
-              await fetchGraphQL(setList, { lists });
+              await fetchGraphQL(setListMutation, { lists });
             };
             await modifiedLists(customLists);
           }
@@ -96,23 +97,23 @@ export const authOptions = {
         return {
           token: profile.token,
           id: profile.sub,
-          name: profile?.name,
+          name: profile.name,
           image: profile.image,
-          createdAt: profile?.createdAt,
-          list: profile?.list,
+          createdAt: profile.createdAt,
+          list: profile.list,
         };
       },
     },
   ],
   session: {
-    strategy: "jwt", // Using JWTs for sessions
+    strategy: "jwt",
   },
   callbacks: {
     async jwt({ token, user }) {
-      return { ...token, ...user }; // Combine token and user
+      return { ...token, ...user };
     },
     async session({ session, token }) {
-      session.user = token; // Add user data to session
+      session.user = token;
       return session;
     },
   },
