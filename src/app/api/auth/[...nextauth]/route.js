@@ -1,14 +1,7 @@
 import NextAuth from "next-auth";
-import { JWT } from "next-auth/jwt"; // Import JWT for type annotations if needed.
-
-// Ensure todo: replace with appropriate types if you're using TypeScript
-const { getServerSession } = require("next-auth/next");
+import { getServerSession } from "next-auth";
 
 export const authOptions = {
-  // Use JSON Web Tokens for session management
-  session: {
-    strategy: "jwt",
-  },
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
     {
@@ -52,39 +45,42 @@ export const authOptions = {
               `,
             }),
           });
+          const { data } = await response.json();
 
-          const data = await response.json();
+          const userLists = data?.Viewer?.mediaListOptions?.animeList?.customLists || [];
 
-          const userLists = data.Viewer?.mediaListOptions.animeList.customLists || [];
-          
-          // Add custom list if not already present
           if (!userLists.includes("Watched Via 1Anime")) {
             userLists.push("Watched Via 1Anime");
-
-            await fetch("https://graphql.anilist.co/", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${context.tokens.access_token}`,
-                Accept: "application/json",
-              },
-              body: JSON.stringify({
-                query: `
-                  mutation($lists: [String]) {
-                    UpdateUser(animeListOptions: { customLists: $lists }) {
-                      id
-                    }
-                  }
-                `,
-                variables: { lists: userLists },
+            const fetchGraphQL = async (query, variables) => {
+              const res = await fetch("https://graphql.anilist.co/", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(context.tokens.access_token && {
+                    Authorization: `Bearer ${context.tokens.access_token}`,
+                  }),
+                  Accept: "application/json",
+                },
+                body: JSON.stringify({ query, variables }),
               });
+              return res.json();
+            };
+
+            const setListMutation = `
+              mutation($lists: [String]) {
+                UpdateUser(animeListOptions: { customLists: $lists }) {
+                  id
+                }
+              }
+            `;
+            await fetchGraphQL(setListMutation, { lists: userLists });
           }
 
           return {
             token: context.tokens.access_token,
-            id: data.Viewer.id,
             name: data.Viewer.name,
-            image: data.Viewer.avatar,
+            sub: data.Viewer.id,
+            image: data.Viewer.avatar.large,
             createdAt: data.Viewer.createdAt,
             list: userLists,
           };
@@ -95,7 +91,7 @@ export const authOptions = {
       profile(profile) {
         return {
           token: profile.token,
-          id: profile.id,
+          id: profile.sub,
           name: profile.name,
           image: profile.image,
           createdAt: profile.createdAt,
@@ -104,16 +100,14 @@ export const authOptions = {
       },
     },
   ],
+  session: {
+    strategy: "jwt",
+  },
   callbacks: {
     async jwt({ token, user }) {
-      // Append user data to the token
-      if (user) {
-        token = { ...token, ...user };
-      }
-      return token;
+      return { ...token, ...user };
     },
     async session({ session, token }) {
-      // Attach the JWT token to the session
       session.user = token;
       return session;
     },
@@ -122,9 +116,6 @@ export const authOptions = {
 
 const handler = NextAuth(authOptions);
 
-export const getAuthSession = () => {
-  return getServerSession(authOptions);
-};
+export const getAuthSession = () => getServerSession(authOptions);
 
-// Export handlers for Next.js API routes
 export { handler as GET, handler as POST };
