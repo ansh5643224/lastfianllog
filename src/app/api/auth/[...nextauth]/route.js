@@ -1,6 +1,9 @@
 import NextAuth from "next-auth";
 import { JWT } from "next-auth/jwt"; // Import JWT for type annotations if needed.
 
+// Ensure todo: replace with appropriate types if you're using TypeScript
+const { getServerSession } = require("next-auth/next");
+
 export const authOptions = {
   // Use JSON Web Tokens for session management
   session: {
@@ -20,7 +23,7 @@ export const authOptions = {
       userinfo: {
         url: "https://graphql.anilist.co",
         async request(context) {
-          const { data } = await fetch("https://graphql.anilist.co", {
+          const response = await fetch("https://graphql.anilist.co", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -48,7 +51,9 @@ export const authOptions = {
                 }
               `,
             }),
-          }).then((res) => res.json());
+          });
+
+          const data = await response.json();
 
           const userLists = data.Viewer?.mediaListOptions.animeList.customLists || [];
           
@@ -65,8 +70,8 @@ export const authOptions = {
               },
               body: JSON.stringify({
                 query: `
-                  mutation($lists: [String]){
-                    UpdateUser(animeListOptions: { customLists: $lists }){
+                  mutation($lists: [String]) {
+                    UpdateUser(animeListOptions: { customLists: $lists }) {
                       id
                     }
                   }
