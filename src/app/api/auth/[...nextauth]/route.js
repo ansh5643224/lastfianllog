@@ -34,6 +34,7 @@ export const authOptions = {
       userinfo: {
         url: "https://graphql.anilist.co",
         async request(context) {
+          console.log("Received access token:", context.tokens.access_token);
           const res = await fetch("https://graphql.anilist.co", {
             method: "POST",
             headers: {
@@ -64,6 +65,7 @@ export const authOptions = {
             }),
           });
           const data = await res.json();
+          console.log("Data received from AniList:", data);
 
           const userLists = data.Viewer?.mediaListOptions.animeList.customLists;
           let customLists = userLists || [];
