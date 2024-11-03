@@ -1,16 +1,10 @@
 import NextAuth from "next-auth";
-import { getServerSession } from "next-auth";
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 
-let db;
-(async () => {
-  db = await open({
-    filename: './database.sqlite',
-    driver: sqlite3.Database
-  });
-})().catch(error => {
-  console.error("Failed to open SQLite database:", error);
+const db = await open({
+  filename: './database.sqlite',
+  driver: sqlite3.Database
 });
 
 const fetchGraphQL = async (query, variables, accessToken) => {
@@ -27,7 +21,7 @@ const fetchGraphQL = async (query, variables, accessToken) => {
 };
 
 export const authOptions = {
-  secret: "yqsdAIKIgB2YZOTaT4NO9aPNxCbTCzwoGJ36rQJO",
+  secret: "yqsdAIKIgB2YZOTaT4NO9aPNxCbTCzwoGJ36rQJO", // Directly use the secret here
   providers: [
     {
       id: "AniListProvider",
