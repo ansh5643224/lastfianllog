@@ -13,7 +13,7 @@ export const authOptions: AuthOptions = {
       token: 'https://anilist.co/api/v2/oauth/token',
       authorization: {
         url: 'https://anilist.co/api/v2/oauth/authorize',
-        params: { scope: '', response_type: 'code' },
+        params: { scope: '', response_type: 'code' }, // Comma instead of colon
       },
       userinfo: {
         url: 'https://graphql.anilist.co',
