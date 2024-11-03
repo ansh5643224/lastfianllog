@@ -15,7 +15,7 @@ const fetchGraphQL = async (query, variables, accessToken) => {
 };
 
 export const authOptions = {
-  secret: "yqsdAIKIgB2YZOTaT4NO9aPNxCbTCzwoGJ36rQJO", // Directly use the secret here
+  secret: "yqsdAIKIgB2YZOTaT4NO9aPNxCbTCzwoGJ36rQJO",
   providers: [
     {
       id: "AniListProvider",
