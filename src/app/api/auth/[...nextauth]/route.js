@@ -1,10 +1,8 @@
-import NextAuth, { AuthOptions } from "next-auth";
+import NextAuth from "next-auth";
 import { getServerSession } from "next-auth";
-import { JWT as JWTType } from "next-auth/jwt";
-import { Session as SessionType } from "next-auth";
 
 // Define the authOptions for NextAuth
-export const authOptions: AuthOptions = {
+export const authOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
     {
@@ -56,7 +54,7 @@ export const authOptions: AuthOptions = {
           if (!userLists?.includes("Watched Via 1Anime")) {
             customLists.push("Watched Via 1Anime");
 
-            const fetchGraphQL = async (query: string, variables: Record<string, unknown>) => {
+            const fetchGraphQL = async (query, variables) => {
               const response = await fetch("https://graphql.anilist.co/", {
                 method: "POST",
                 headers: {
@@ -71,7 +69,7 @@ export const authOptions: AuthOptions = {
               return response.json();
             };
 
-            const modifiedLists = async (lists: string[]) => {
+            const modifiedLists = async (lists) => {
               const setList = `
                 mutation($lists: [String]){
                   UpdateUser(animeListOptions: { customLists: $lists }){
@@ -97,7 +95,7 @@ export const authOptions: AuthOptions = {
       },
       clientId: process.env.ANILIST_CLIENT_ID,
       clientSecret: process.env.ANILIST_CLIENT_SECRET,
-      profile(profile: any) {
+      profile(profile) {
         return {
           token: profile.token,
           id: profile.sub,
@@ -116,7 +114,7 @@ export const authOptions: AuthOptions = {
     async jwt({ token, user }) {
       return { ...token, ...user }; // Combine token and user
     },
-    async session({ session, token }: { session: SessionType; token: JWTType }) {
+    async session({ session, token }) {
       session.user = token; // Add user data to session
       return session;
     },
