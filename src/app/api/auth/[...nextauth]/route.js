@@ -1,130 +1,125 @@
-import NextAuth from "next-auth"
-import { MongoDBAdapter } from "@auth/mongodb-adapter"
-import clientPromise from "@/mongodb/db";
-import { getServerSession } from "next-auth"
+import NextAuth from "next-auth";
+import { getServerSession } from "next-auth";
+
+const fetchGraphQL = async (query, variables, accessToken) => {
+  const response = await fetch("https://graphql.anilist.co/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+  return response.json();
+};
 
 export const authOptions = {
-  adapter: MongoDBAdapter(clientPromise),
-    secret: process.env.NEXTAUTH_SECRET,
-    providers: [
-      {
-        id: "AniListProvider",
-        name: "AniList",
-        type: "oauth",
-        token: "https://anilist.co/api/v2/oauth/token",
-        authorization: {
-          url: "https://anilist.co/api/v2/oauth/authorize",
-          params: { scope: "", response_type: "code" },
+  secret: "yqsdAIKIgB2YZOTaT4NO9aPNxCbTCzwoGJ36rQJO", // Directly use the secret here
+  providers: [
+    {
+      id: "AniListProvider",
+      name: "AniList",
+      type: "oauth",
+      token: "https://anilist.co/api/v2/oauth/token",
+      authorization: {
+        url: "https://anilist.co/api/v2/oauth/authorize",
+        params: {
+          scope: "read:anime write:anime",
+          response_type: "code",
+          redirect_uri: "https://airin-fcon.vercel.app/api/auth/callback/AniListProvider",
+          client_id: "22155"
         },
-        userinfo: {
-          url: process.env.GRAPHQL_ENDPOINT,
-          async request(context) {
-            const { data } = await fetch("https://graphql.anilist.co", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${context.tokens.access_token}`,
-                Accept: "application/json",
-              },
-              body: JSON.stringify({
-                query: `
-                  query {
-                    Viewer {
-                      id
-                      name
-                      avatar {
-                        large
-                        medium
-                      }
-                      bannerImage
-                      createdAt
-                      mediaListOptions {
-                        animeList {
-                          customLists
-                        }
+      },
+      userinfo: {
+        url: "https://graphql.anilist.co",
+        async request(context) {
+          const res = await fetch("https://graphql.anilist.co", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${context.tokens.access_token}`,
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              query: `
+                query {
+                  Viewer {
+                    id
+                    name
+                    avatar {
+                      large
+                      medium
+                    }
+                    bannerImage
+                    createdAt
+                    mediaListOptions {
+                      animeList {
+                        customLists
                       }
                     }
                   }
-                `,
-              }),
-            }).then((res) => res.json());
-  
-            const userLists = data.Viewer?.mediaListOptions.animeList.customLists;
-  
-            let customLists = userLists || [];
-  
-            if (!userLists?.includes("Watched Via Airin")) {
-              customLists.push("Watched Via Airin");
-              const fetchGraphQL = async (query, variables) => {
-                const response = await fetch("https://graphql.anilist.co/", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    ...(context.tokens.access_token && {
-                      Authorization: `Bearer ${context.tokens.access_token}`,
-                    }),
-                    Accept: "application/json",
-                  },
-                  body: JSON.stringify({ query, variables }),
-                });
-                return response.json();
-              };
-  
-              const modifiedLists = async (lists) => {
-                const setList = `
-                      mutation($lists: [String]){
-                        UpdateUser(animeListOptions: { customLists: $lists }){
-                          id
-                        }
-                      }
-                    `;
-                const data = await fetchGraphQL(setList, { lists });
-                return data;
-              };
-  
-              await modifiedLists(customLists);
-            }
-  
-            return {
-              token: context.tokens.access_token,
-              name: data.Viewer.name,
-              sub: data.Viewer.id,
-              image: data.Viewer.avatar,
-              createdAt: data.Viewer.createdAt,
-              list: data.Viewer?.mediaListOptions.animeList.customLists,
-            };
-          },
-        },
-        clientId: process.env.ANILIST_CLIENT_ID,
-        clientSecret: process.env.ANILIST_CLIENT_SECRET,
-        profile(profile) {
+                }
+              `,
+            }),
+          });
+          const data = await res.json();
+
+          const userLists = data.Viewer?.mediaListOptions.animeList.customLists;
+          let customLists = userLists || [];
+
+          if (!userLists?.includes("Watched Via Airin")) {
+            customLists.push("Watched Via Airin");
+            const setList = `
+              mutation($lists: [String]){
+                UpdateUser(animeListOptions: { customLists: $lists }){
+                  id
+                }
+              }
+            `;
+            await fetchGraphQL(setList, { lists: customLists }, context.tokens.access_token);
+          }
+
           return {
-            token: profile.token,
-            id: profile.sub,
-            name: profile?.name,
-            image: profile.image,
-            createdAt: profile?.createdAt,
-            list: profile?.list,
+            token: context.tokens.access_token,
+            name: data.Viewer.name,
+            sub: data.Viewer.id,
+            image: data.Viewer.avatar,
+            createdAt: data.Viewer.createdAt,
+            list: data.Viewer?.mediaListOptions.animeList.customLists,
           };
         },
       },
-    ],
-    session: {
-      strategy: "jwt",
-    },
-    callbacks: {
-      async jwt({ token, user }) {
-        return { ...token, ...user };
+      clientId: "22155",
+      clientSecret: "8bmea5HynlioXnpZWhP2uvGyslpDZpSKqFOBZiMa",
+      profile(profile) {
+        return {
+          token: profile.token,
+          id: profile.sub,
+          name: profile.name,
+          image: profile.image,
+          createdAt: profile.createdAt,
+          list: profile.list,
+        };
       },
-      async session({ session, token, user }) {
-        session.user = token;
-        return session;
-      },
     },
-  };
-  
-const handler = NextAuth(authOptions)
+  ],
+  session: {
+    strategy: "jwt",
+  },
+  callbacks: {
+    async jwt({ token, user }) {
+      return { ...token, ...user };
+    },
+    async session({ session, token }) {
+      session.user = token;
+      return session;
+    },
+  },
+};
 
-export const getAuthSession = () => getServerSession(authOptions)
+const handler = NextAuth(authOptions);
 
-export { handler as GET, handler as POST }
+export const getAuthSession = () => getServerSession(authOptions);
+
+export { handler as GET, handler as POST };
