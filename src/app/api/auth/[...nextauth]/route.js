@@ -48,8 +48,11 @@ export const authOptions = {
           });
 
           const { data } = await response.json();
-          const userLists = data.Viewer?.mediaListOptions.animeList.customLists || [];
-          const customLists = userLists.includes("Watched Via 1Anime") ? userLists : [...userLists, "Watched Via 1Anime"];
+          const userLists =
+            data.Viewer?.mediaListOptions.animeList.customLists || [];
+          const customLists = userLists.includes("Watched Via 1Anime")
+            ? userLists
+            : [...userLists, "Watched Via 1Anime"];
 
           // Function to fetch GraphQL
           const fetchGraphQL = async (query, variables) => {
@@ -67,6 +70,7 @@ export const authOptions = {
             return await fetchResponse.json();
           };
 
+          // If custom lists do not include "Watched Via 1Anime", add it
           if (!userLists.includes("Watched Via 1Anime")) {
             const modifiedLists = async (lists) => {
               const setListMutation = `
@@ -119,6 +123,7 @@ export const authOptions = {
   },
 };
 
+// Create the handler for NextAuth
 const handler = NextAuth(authOptions);
 
 // Function to get server session
