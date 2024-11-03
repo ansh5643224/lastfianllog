@@ -1,52 +1,29 @@
-import NextAuth from "next-auth";
-import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
+import NextAuth, { AuthOptions } from 'next-auth';
+import { getServerSession } from 'next-auth';
+import { JWT as JWTType } from 'next-auth/jwt';
+import { Session as SessionType } from 'next-auth';
 
-const db = await open({
-  filename: './database.sqlite',
-  driver: sqlite3.Database
-});
-
-const fetchGraphQL = async (query, variables, accessToken) => {
-  const response = await fetch("https://graphql.anilist.co/", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/json",
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  return response.json();
-};
-
-export const authOptions = {
-  secret: "yqsdAIKIgB2YZOTaT4NO9aPNxCbTCzwoGJ36rQJO", // Directly use the secret here
+export const authOptions: AuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
   providers: [
     {
-      id: "AniListProvider",
-      name: "AniList",
-      type: "oauth",
-      token: "https://anilist.co/api/v2/oauth/token",
+      id: 'AniListProvider',
+      name: 'AniList',
+      type: 'oauth',
+      token: 'https://anilist.co/api/v2/oauth/token',
       authorization: {
-        url: "https://anilist.co/api/v2/oauth/authorize",
-        params: {
-          scope: "read:anime write:anime",
-          response_type: "code",
-          redirect_uri: "https://airin-fcon.vercel.app/api/auth/callback/AniListProvider",
-          client_id: "22155"
-        },
+        url: 'https://anilist.co/api/v2/oauth/authorize',
+        params: { scope: '', response_type: 'code' },
       },
       userinfo: {
-        url: "https://graphql.anilist.co",
+        url: 'https://graphql.anilist.co',
         async request(context) {
-          console.log("Received access token:", context.tokens.access_token);
-          const res = await fetch("https://graphql.anilist.co", {
-            method: "POST",
+          const { data } = await fetch('https://graphql.anilist.co', {
+            method: 'POST',
             headers: {
-              "Content-Type": "application/json",
+              'Content-Type': 'application/json',
               Authorization: `Bearer ${context.tokens.access_token}`,
-              Accept: "application/json",
+              Accept: 'application/json',
             },
             body: JSON.stringify({
               query: `
@@ -69,23 +46,45 @@ export const authOptions = {
                 }
               `,
             }),
-          });
-          const data = await res.json();
-          console.log("Data received from AniList:", data);
+          }).then((res) => res.json());
 
           const userLists = data.Viewer?.mediaListOptions.animeList.customLists;
+
           let customLists = userLists || [];
 
-          if (!userLists?.includes("Watched Via Airin")) {
-            customLists.push("Watched Via Airin");
-            const setList = `
-              mutation($lists: [String]){
-                UpdateUser(animeListOptions: { customLists: $lists }){
-                  id
+          if (!userLists?.includes('Watched Via Elyzen')) {
+            customLists.push('Watched Via Elyzen');
+            const fetchGraphQL = async (
+              query: string,
+              variables: Record<string, unknown>
+            ) => {
+              const response = await fetch('https://graphql.anilist.co/', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(context.tokens.access_token && {
+                    Authorization: `Bearer ${context.tokens.access_token}`,
+                  }),
+                  Accept: 'application/json',
+                },
+                body: JSON.stringify({ query, variables }),
+              });
+              return response.json();
+            };
+
+            const modifiedLists = async (lists: string[]) => {
+              const setList = `
+                mutation($lists: [String]){
+                  UpdateUser(animeListOptions: { customLists: $lists }){
+                    id
+                  }
                 }
-              }
-            `;
-            await fetchGraphQL(setList, { lists: customLists }, context.tokens.access_token);
+              `;
+              const data = await fetchGraphQL(setList, { lists });
+              return data;
+            };
+
+            await modifiedLists(customLists);
           }
 
           return {
@@ -98,29 +97,34 @@ export const authOptions = {
           };
         },
       },
-      clientId: "22155",
-      clientSecret: "8bmea5HynlioXnpZWhP2uvGyslpDZpSKqFOBZiMa",
-      profile(profile) {
+      clientId: process.env.ANILIST_CLIENT_ID as string,
+      clientSecret: process.env.ANILIST_CLIENT_SECRET as string,
+      profile(profile: any) {
         return {
           token: profile.token,
           id: profile.sub,
-          name: profile.name,
+          name: profile?.name,
           image: profile.image,
-          createdAt: profile.createdAt,
-          list: profile.list,
+          createdAt: profile?.createdAt,
+          list: profile?.list,
         };
       },
     },
   ],
-  database: db,
   session: {
-    strategy: "jwt",
+    strategy: 'jwt',
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user }: { token: JWTType; user?: any }) {
       return { ...token, ...user };
     },
-    async session({ session, token }) {
+    async session({
+      session,
+      token,
+    }: {
+      session: SessionType;
+      token: JWTType;
+    }) {
       session.user = token;
       return session;
     },
