@@ -15,7 +15,7 @@ export const authOptions = {
         params: { scope: "", response_type: "code" },
       },
       userinfo: {
-        url: "https://graphql.anilist.co", // Directly using the GraphQL endpoint
+        url: "https://graphql.anilist.co",
         async request(context) {
           const response = await fetch("https://graphql.anilist.co", {
             method: "POST",
@@ -48,27 +48,25 @@ export const authOptions = {
           });
 
           const { data } = await response.json();
-          const userLists = data.Viewer?.mediaListOptions.animeList.customLists;
-          let customLists = userLists || [];
+          const userLists = data.Viewer?.mediaListOptions.animeList.customLists ?? [];
+          const customLists = userLists.includes("Watched Via 1Anime") ? userLists : [...userLists, "Watched Via 1Anime"];
 
-          if (!userLists?.includes("Watched Via 1Anime")) {
-            customLists.push("Watched Via 1Anime");
+          const fetchGraphQL = async (query, variables) => {
+            const fetchResponse = await fetch("https://graphql.anilist.co/", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(context.tokens.access_token && {
+                  Authorization: `Bearer ${context.tokens.access_token}`,
+                }),
+                Accept: "application/json",
+              },
+              body: JSON.stringify({ query, variables }),
+            });
+            return await fetchResponse.json();
+          };
 
-            const fetchGraphQL = async (query, variables) => {
-              const response = await fetch("https://graphql.anilist.co/", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  ...(context.tokens.access_token && {
-                    Authorization: `Bearer ${context.tokens.access_token}`,
-                  }),
-                  Accept: "application/json",
-                },
-                body: JSON.stringify({ query, variables }),
-              });
-              return response.json();
-            };
-
+          if (!userLists.includes("Watched Via 1Anime")) {
             const modifiedLists = async (lists) => {
               const setList = `
                 mutation($lists: [String]){
@@ -79,7 +77,6 @@ export const authOptions = {
               `;
               await fetchGraphQL(setList, { lists });
             };
-
             await modifiedLists(customLists);
           }
 
