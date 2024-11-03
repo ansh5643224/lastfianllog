@@ -1,5 +1,7 @@
 import NextAuth from "next-auth";
 import { getServerSession } from "next-auth";
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
 
 const fetchGraphQL = async (query, variables, accessToken) => {
   const response = await fetch("https://graphql.anilist.co/", {
@@ -13,6 +15,11 @@ const fetchGraphQL = async (query, variables, accessToken) => {
   });
   return response.json();
 };
+
+const db = await open({
+  filename: './database.sqlite',
+  driver: sqlite3.Database
+});
 
 export const authOptions = {
   secret: "yqsdAIKIgB2YZOTaT4NO9aPNxCbTCzwoGJ36rQJO",
@@ -34,7 +41,6 @@ export const authOptions = {
       userinfo: {
         url: "https://graphql.anilist.co",
         async request(context) {
-          console.log("Received access token:", context.tokens.access_token);
           const res = await fetch("https://graphql.anilist.co", {
             method: "POST",
             headers: {
@@ -65,7 +71,6 @@ export const authOptions = {
             }),
           });
           const data = await res.json();
-          console.log("Data received from AniList:", data);
 
           const userLists = data.Viewer?.mediaListOptions.animeList.customLists;
           let customLists = userLists || [];
@@ -106,6 +111,7 @@ export const authOptions = {
       },
     },
   ],
+  database: db,
   session: {
     strategy: "jwt",
   },
