@@ -1,28 +1,29 @@
-import NextAuth from "next-auth";
-import { getServerSession } from "next-auth";
+import NextAuth, { AuthOptions } from 'next-auth';
+import { getServerSession } from 'next-auth';
+import { JWT as JWTType } from 'next-auth/jwt';
+import { Session as SessionType } from 'next-auth';
 
-// Define the authOptions for NextAuth
-export const authOptions = {
+export const authOptions: AuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
     {
-      id: "AniListProvider",
-      name: "AniList",
-      type: "oauth",
-      token: "https://anilist.co/api/v2/oauth/token",
+      id: 'AniListProvider',
+      name: 'AniList',
+      type: 'oauth',
+      token: 'https://anilist.co/api/v2/oauth/token',
       authorization: {
-        url: "https://anilist.co/api/v2/oauth/authorize",
-        params: { scope: "", response_type: "code" },
+        url: 'https://anilist.co/api/v2/oauth/authorize',
+        params: { scope: '', response_type: 'code' },
       },
       userinfo: {
-        url: "https://graphql.anilist.co",
+        url: 'https://graphql.anilist.co',
         async request(context) {
-          const response = await fetch("https://graphql.anilist.co", {
-            method: "POST",
+          const { data } = await fetch('https://graphql.anilist.co', {
+            method: 'POST',
             headers: {
-              "Content-Type": "application/json",
+              'Content-Type': 'application/json',
               Authorization: `Bearer ${context.tokens.access_token}`,
-              Accept: "application/json",
+              Accept: 'application/json',
             },
             body: JSON.stringify({
               query: `
@@ -45,43 +46,44 @@ export const authOptions = {
                 }
               `,
             }),
-          });
+          }).then((res) => res.json());
 
-          const { data } = await response.json();
-          const userLists =
-            data.Viewer?.mediaListOptions.animeList.customLists || [];
-          const customLists = userLists.includes("Watched Via 1Anime")
-            ? userLists
-            : [...userLists, "Watched Via 1Anime"];
+          const userLists = data.Viewer?.mediaListOptions.animeList.customLists;
 
-          // Function to fetch GraphQL
-          const fetchGraphQL = async (query, variables) => {
-            const fetchResponse = await fetch("https://graphql.anilist.co/", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                ...(context.tokens.access_token && {
-                  Authorization: `Bearer ${context.tokens.access_token}`,
-                }),
-                Accept: "application/json",
-              },
-              body: JSON.stringify({ query, variables }),
-            });
-            return await fetchResponse.json();
-          };
+          let customLists = userLists || [];
 
-          // If custom lists do not include "Watched Via 1Anime", add it
-          if (!userLists.includes("Watched Via 1Anime")) {
-            const modifiedLists = async (lists) => {
-              const setListMutation = `
+          if (!userLists?.includes('Watched Via Elyzen')) {
+            customLists.push('Watched Via Elyzen');
+            const fetchGraphQL = async (
+              query: string,
+              variables: Record<string, unknown>
+            ) => {
+              const response = await fetch('https://graphql.anilist.co/', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(context.tokens.access_token && {
+                    Authorization: `Bearer ${context.tokens.access_token}`,
+                  }),
+                  Accept: 'application/json',
+                },
+                body: JSON.stringify({ query, variables }),
+              });
+              return response.json();
+            };
+
+            const modifiedLists = async (lists: string[]) => {
+              const setList = `
                 mutation($lists: [String]){
                   UpdateUser(animeListOptions: { customLists: $lists }){
                     id
                   }
                 }
               `;
-              await fetchGraphQL(setListMutation, { lists });
+              const data = await fetchGraphQL(setList, { lists });
+              return data;
             };
+
             await modifiedLists(customLists);
           }
 
@@ -91,43 +93,46 @@ export const authOptions = {
             sub: data.Viewer.id,
             image: data.Viewer.avatar,
             createdAt: data.Viewer.createdAt,
-            list: customLists,
+            list: data.Viewer?.mediaListOptions.animeList.customLists,
           };
         },
       },
-      clientId: process.env.ANILIST_CLIENT_ID,
-      clientSecret: process.env.ANILIST_CLIENT_SECRET,
-      profile(profile) {
+      clientId: process.env.ANILIST_CLIENT_ID as string,
+      clientSecret: process.env.ANILIST_CLIENT_SECRET as string,
+      profile(profile: any) {
         return {
           token: profile.token,
           id: profile.sub,
-          name: profile.name,
+          name: profile?.name,
           image: profile.image,
-          createdAt: profile.createdAt,
-          list: profile.list,
+          createdAt: profile?.createdAt,
+          list: profile?.list,
         };
       },
     },
   ],
   session: {
-    strategy: "jwt",
+    strategy: 'jwt',
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user }: { token: JWTType; user?: any }) {
       return { ...token, ...user };
     },
-    async session({ session, token }) {
+    async session({
+      session,
+      token,
+    }: {
+      session: SessionType;
+      token: JWTType;
+    }) {
       session.user = token;
       return session;
     },
   },
 };
 
-// Create the handler for NextAuth
 const handler = NextAuth(authOptions);
 
-// Function to get server session
 export const getAuthSession = () => getServerSession(authOptions);
 
-// Export the handler for NextAuth API routes
 export { handler as GET, handler as POST };
