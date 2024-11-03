@@ -52,8 +52,10 @@ export const authOptions: AuthOptions = {
 
           let customLists = userLists || [];
 
+          // Check if the custom list exists and add if not
           if (!userLists?.includes('Watched Via Elyzen')) {
             customLists.push('Watched Via Elyzen');
+
             const fetchGraphQL = async (
               query: string,
               variables: Record<string, unknown>
@@ -93,7 +95,7 @@ export const authOptions: AuthOptions = {
             sub: data.Viewer.id,
             image: data.Viewer.avatar,
             createdAt: data.Viewer.createdAt,
-            list: data.Viewer?.mediaListOptions.animeList.customLists,
+            list: customLists,
           };
         },
       },
@@ -103,10 +105,10 @@ export const authOptions: AuthOptions = {
         return {
           token: profile.token,
           id: profile.sub,
-          name: profile?.name,
+          name: profile.name,
           image: profile.image,
-          createdAt: profile?.createdAt,
-          list: profile?.list,
+          createdAt: profile.createdAt,
+          list: profile.list,
         };
       },
     },
@@ -118,13 +120,7 @@ export const authOptions: AuthOptions = {
     async jwt({ token, user }: { token: JWTType; user?: any }) {
       return { ...token, ...user };
     },
-    async session({
-      session,
-      token,
-    }: {
-      session: SessionType;
-      token: JWTType;
-    }) {
+    async session({ session, token }: { session: SessionType; token: JWTType }) {
       session.user = token;
       return session;
     },
@@ -133,6 +129,8 @@ export const authOptions: AuthOptions = {
 
 const handler = NextAuth(authOptions);
 
+// This function is used for retrieving the server session
 export const getAuthSession = () => getServerSession(authOptions);
 
+// Export the handler for use in the API routes
 export { handler as GET, handler as POST };
