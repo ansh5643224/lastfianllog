@@ -1,29 +1,31 @@
-import NextAuth, { AuthOptions } from 'next-auth';
-import { getServerSession } from 'next-auth';
-import { JWT as JWTType } from 'next-auth/jwt';
-import { Session as SessionType } from 'next-auth';
+import NextAuth from "next-auth";
+import { JWT } from "next-auth/jwt"; // Import JWT for type annotations if needed.
 
-export const authOptions: AuthOptions = {
+export const authOptions = {
+  // Use JSON Web Tokens for session management
+  session: {
+    strategy: "jwt",
+  },
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
     {
-      id: 'AniListProvider',
-      name: 'AniList',
-      type: 'oauth',
-      token: 'https://anilist.co/api/v2/oauth/token',
+      id: "AniListProvider",
+      name: "AniList",
+      type: "oauth",
+      token: "https://anilist.co/api/v2/oauth/token",
       authorization: {
-        url: 'https://anilist.co/api/v2/oauth/authorize',
-        params: { scope: '', response_type: 'code' },
+        url: "https://anilist.co/api/v2/oauth/authorize",
+        params: { scope: "", response_type: "code" },
       },
       userinfo: {
-        url: 'https://graphql.anilist.co',
+        url: "https://graphql.anilist.co",
         async request(context) {
-          const { data } = await fetch('https://graphql.anilist.co', {
-            method: 'POST',
+          const { data } = await fetch("https://graphql.anilist.co", {
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json',
+              "Content-Type": "application/json",
               Authorization: `Bearer ${context.tokens.access_token}`,
-              Accept: 'application/json',
+              Accept: "application/json",
             },
             body: JSON.stringify({
               query: `
@@ -48,63 +50,47 @@ export const authOptions: AuthOptions = {
             }),
           }).then((res) => res.json());
 
-          const userLists = data.Viewer?.mediaListOptions.animeList.customLists;
+          const userLists = data.Viewer?.mediaListOptions.animeList.customLists || [];
+          
+          // Add custom list if not already present
+          if (!userLists.includes("Watched Via 1Anime")) {
+            userLists.push("Watched Via 1Anime");
 
-          let customLists = userLists || [];
-
-          // Check if the custom list exists and add if not
-          if (!userLists?.includes('Watched Via Elyzen')) {
-            customLists.push('Watched Via Elyzen');
-
-            const fetchGraphQL = async (
-              query: string,
-              variables: Record<string, unknown>
-            ) => {
-              const response = await fetch('https://graphql.anilist.co/', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...(context.tokens.access_token && {
-                    Authorization: `Bearer ${context.tokens.access_token}`,
-                  }),
-                  Accept: 'application/json',
-                },
-                body: JSON.stringify({ query, variables }),
-              });
-              return response.json();
-            };
-
-            const modifiedLists = async (lists: string[]) => {
-              const setList = `
-                mutation($lists: [String]){
-                  UpdateUser(animeListOptions: { customLists: $lists }){
-                    id
+            await fetch("https://graphql.anilist.co/", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${context.tokens.access_token}`,
+                Accept: "application/json",
+              },
+              body: JSON.stringify({
+                query: `
+                  mutation($lists: [String]){
+                    UpdateUser(animeListOptions: { customLists: $lists }){
+                      id
+                    }
                   }
-                }
-              `;
-              const data = await fetchGraphQL(setList, { lists });
-              return data;
-            };
-
-            await modifiedLists(customLists);
+                `,
+                variables: { lists: userLists },
+              });
           }
 
           return {
             token: context.tokens.access_token,
+            id: data.Viewer.id,
             name: data.Viewer.name,
-            sub: data.Viewer.id,
             image: data.Viewer.avatar,
             createdAt: data.Viewer.createdAt,
-            list: customLists,
+            list: userLists,
           };
         },
       },
-      clientId: process.env.ANILIST_CLIENT_ID as string,
-      clientSecret: process.env.ANILIST_CLIENT_SECRET as string,
-      profile(profile: any) {
+      clientId: process.env.ANILIST_CLIENT_ID,
+      clientSecret: process.env.ANILIST_CLIENT_SECRET,
+      profile(profile) {
         return {
           token: profile.token,
-          id: profile.sub,
+          id: profile.id,
           name: profile.name,
           image: profile.image,
           createdAt: profile.createdAt,
@@ -113,14 +99,16 @@ export const authOptions: AuthOptions = {
       },
     },
   ],
-  session: {
-    strategy: 'jwt',
-  },
   callbacks: {
-    async jwt({ token, user }: { token: JWTType; user?: any }) {
-      return { ...token, ...user };
+    async jwt({ token, user }) {
+      // Append user data to the token
+      if (user) {
+        token = { ...token, ...user };
+      }
+      return token;
     },
-    async session({ session, token }: { session: SessionType; token: JWTType }) {
+    async session({ session, token }) {
+      // Attach the JWT token to the session
       session.user = token;
       return session;
     },
@@ -129,8 +117,9 @@ export const authOptions: AuthOptions = {
 
 const handler = NextAuth(authOptions);
 
-// This function is used for retrieving the server session
-export const getAuthSession = () => getServerSession(authOptions);
+export const getAuthSession = () => {
+  return getServerSession(authOptions);
+};
 
-// Export the handler for use in the API routes
+// Export handlers for Next.js API routes
 export { handler as GET, handler as POST };
