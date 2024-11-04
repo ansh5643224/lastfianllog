@@ -1,10 +1,11 @@
 "use client"
 import React, { useEffect, useState } from 'react';
-import { DropdownItem, DropdownTrigger, Dropdown, DropdownMenu, DropdownSection, Avatar, Badge, useDisclosure } from "@nextui-org/react";
+import { Modal, ModalContent, ModalHeader, ModalBody, DropdownItem, DropdownTrigger, Dropdown, DropdownMenu, DropdownSection, Avatar, Badge, useDisclosure } from "@nextui-org/react";
 import Link from "next/link"
 import styles from '../../styles/Navbar.module.css'
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { FeedbackIcon, LoginIcon, LogoutIcon, SettingsIcon, ProfileIcon, NotificationIcon } from '@/lib/SvgIcons';
+import { ArrowPathIcon,ClockIcon,ChatBubbleBottomCenterIcon,BookOpenIcon,BanknotesIcon,ChatBubbleOvalLeftEllipsisIcon } from '@heroicons/react/24/outline';
 import { Usernotifications } from '@/lib/AnilistUser';
 import { motion, useScroll, useMotionValueEvent } from 'framer-motion';
 import Feedbackform from './Feedbackform';
@@ -12,12 +13,24 @@ import { NotificationTime } from '@/utils/TimeFunctions';
 import { useTitle, useSearchbar } from '@/lib/store';
 import { useStore } from 'zustand';
 import Image from 'next/image';
+import { useRouter } from 'next-nprogress-bar';
 
 function Navbarcomponent({ home = false }) {
     const animetitle = useStore(useTitle, (state) => state.animetitle);
-    const Isopen = useStore(useSearchbar, (state) => state.Isopen);
-    const { isOpen, onOpen, onOpenChange } = useDisclosure();
-    const iconClasses = "w-5 h-5 text-xl text-default-500 pointer-events-none flex-shrink-0";
+    const Isopen = useStore(useSearchbar, (state) => state.Isopen);  
+      const {
+        isOpen: isOpenModalTwo,
+        onOpen: onOpenModalTwo,
+        onClose: onCloseModalTwo,
+        onOpenChange: onOpenChangeTwo,
+      } = useDisclosure();
+      const {
+        isOpen: isOpenModalOne,
+        onOpen: onOpenModalOne,
+        onClose: onCloseModalOne,
+        onOpenChange: onOpenChangeOne,
+      } = useDisclosure();
+          const iconClasses = "w-5 h-5 text-xl text-default-500 pointer-events-none flex-shrink-0";
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
     const { data, status } = useSession();
@@ -26,6 +39,7 @@ function Navbarcomponent({ home = false }) {
     const [notifications, setNotifications] = useState([]);
     const [todayNotifications, setTodayNotifications] = useState([]);
     const [selectedTimeframe, setSelectedTimeframe] = useState('Today');
+    const router = useRouter();
 
     const handleTimeframeChange = (e) => {
         setSelectedTimeframe(e.target.value);
@@ -110,14 +124,36 @@ function Navbarcomponent({ home = false }) {
             <div className={styles.navleft}>
                 <div className={styles.logoContainer}>
                     <Link href="/" className={styles.logoLink}>
-                        Airin
+                        {/* ANIPLAY */}
+                        <Image src='https://1anime.co/logo.svg' width={50} height={50} className="w-32 h-20 "/>
                     </Link>
                 </div>
                 <div className={styles.navItemsContainer}>
-                    <Link href="/anime/catalog" className={styles.navItem}>Catalog</Link>
-                    <Link href="/anime/catalog?sortby=TRENDING_DESC" className={styles.navItem}>Trending</Link>
-                    <Link href="/anime/catalog?format=MOVIE" className={styles.navItem}>Movies</Link>
-                </div>
+  <select
+    className="{styles.navItem} mx-1 bg-[#1a1a1f] text-xs font-bold px-2 py-1 rounded-lg flex items-center justify-center"
+    onChange={(e) => {
+      const selectedOption = e.target.value;
+      if (selectedOption === "/anime/catalog") {
+        window.location.href = selectedOption;
+      } else if (selectedOption === "/anime/catalog?sortby=TRENDING_DESC") {
+        window.location.href = selectedOption;
+      } else if (selectedOption === "/anime/catalog?format=MOVIE") {
+        window.location.href = selectedOption;
+      } else if (selectedOption === "/anime/random") {
+        window.location.href = selectedOption;
+    } else if (selectedOption === "/schedule") {
+        window.location.href = selectedOption;
+    }
+    }}
+  >
+    <option value="">Navigate</option>
+    <option value="/anime/catalog">Explore</option>
+    <option value="/anime/catalog?sortby=TRENDING_DESC">Trending</option>
+    <option value="/anime/catalog?format=MOVIE">Movies</option>
+    <option value="/schedule">Schedule</option>
+    <option value="/anime/random">Random Anime</option>
+  </select>
+</div>
             </div>
             <div className={styles.navright}>
                 <button
@@ -278,7 +314,7 @@ function Navbarcomponent({ home = false }) {
                 <Dropdown placement="bottom-end" classNames={{
                     base: "before:bg-default-200",
                     content: "py-1 px-1 border border-default-200 bg-gradient-to-br from-white to-default-200 dark:from-default-50 dark:to-black",
-                }}>
+                }} isLazy> 
                     <DropdownTrigger>
                         <Avatar
                             isBordered
@@ -288,7 +324,7 @@ function Navbarcomponent({ home = false }) {
                             color="secondary"
                             name={data?.user?.name}
                             size="sm"
-                            src={data?.user?.image?.large || data?.user?.image?.medium || "https://i.pravatar.cc/150?u=a042581f4e29026704d"}
+                            src={data?.user?.image?.large || data?.user?.image?.medium || "https://media.discordapp.net/attachments/1001735269466259461/1231068879409778789/1AnimeSmedia_1.png?ex=662479bd&is=6623283d&hm=6fa39f541278a51437ce8723a7b5410176557931cac5e83ffcff438a474af757&=&format=webp&quality=lossless"}
                         />
                     </DropdownTrigger>
                     {isLoggedIn ? (
@@ -300,7 +336,25 @@ function Navbarcomponent({ home = false }) {
                             <DropdownItem key="profile" startContent={<ProfileIcon className={iconClasses} />}>
                             <Link href={`/user/profile`} className='w-full h-full block '>Profile</Link>
                                 </DropdownItem>
-                            <DropdownItem key="help_and_feedback" onPress={onOpen} startContent={<FeedbackIcon className={iconClasses} />}>Help & Feedback</DropdownItem>
+                                <DropdownItem key="donate" startContent={<BanknotesIcon className={iconClasses} />}>
+                    <Link href={`https://ko-fi.com/1Anime`} className='w-full h-full block '>Support us/Donate</Link>
+                </DropdownItem>
+                <DropdownItem key="AIChat" startContent={<ChatBubbleOvalLeftEllipsisIcon className={iconClasses} />}>
+                    <Link href={`#`} className='w-full h-full block '>AI Chats (Coming Soon)</Link>
+                </DropdownItem>
+                <DropdownItem key="chat" startContent={<ChatBubbleBottomCenterIcon className={iconClasses} />}>
+                    <Link href={`https://dsc.gg/1anime`} className='w-full h-full block '>Community/Discord</Link>
+                </DropdownItem>
+                <DropdownItem key="schedule" startContent={<ClockIcon className={iconClasses} />}>
+                    <Link href={`/schedule`} className='w-full h-full block '>Schedule</Link>
+                </DropdownItem>
+                <DropdownItem key="random" startContent={<ArrowPathIcon className={iconClasses} />}>
+                    <Link href={`/anime/random`} className='w-full h-full block '>Random Anime</Link>
+                </DropdownItem>
+                <DropdownItem disabled key="manga" startContent={<BookOpenIcon className={iconClasses} />}>
+                    <Link disabled href={`#`} className='w-full h-full block '>Manga (Unavailable)</Link>
+                </DropdownItem>
+                            <DropdownItem key="help_and_feedback" onPress={onOpenModalOne} startContent={<FeedbackIcon className={iconClasses} />}>Help & Feedback</DropdownItem>
                             <DropdownItem key="settings" startContent={<SettingsIcon className={iconClasses} />}>
                                 <Link href={`/settings`} className='w-full h-full block '>Settings</Link>
                             </DropdownItem>
@@ -310,17 +364,37 @@ function Navbarcomponent({ home = false }) {
                         </DropdownMenu>
                     ) : (
                         <DropdownMenu aria-label="Profile Actions" variant="flat">
-                            <DropdownItem key="notlogprofile" startContent={<LoginIcon className={iconClasses} />}>
-                                <button className="font-semibold outline-none border-none w-full h-full block text-left" onClick={() => signIn('AniListProvider')}>Login With Anilist</button>
+                            <DropdownItem key="notlogprofile" startContent={<LoginIcon className={iconClasses} />}> 
+                                <button className="font-semibold outline-none border-none w-full h-full block text-left" onClick={() => {
+                router.push("/authv2/v2/");
+            }}>SignUp/LogIn</button>
+             <DropdownItem key="donate" startContent={<BanknotesIcon className={iconClasses} />}>
+                    <Link href={`https://ko-fi.com/1Anime`} className='w-full h-full block '>Support us/Donate</Link>
+                </DropdownItem>
+                <DropdownItem key="AIChat" startContent={<ChatBubbleOvalLeftEllipsisIcon className={iconClasses} />}>
+                    <Link href={`#`} className='w-full h-full block '>AI Chats (Coming Soon)</Link>
+                </DropdownItem>
+                <DropdownItem key="chat" startContent={<ChatBubbleBottomCenterIcon className={iconClasses} />}>
+                    <Link href={`https://dsc.gg/1anime`} className='w-full h-full block '>Community/Discord</Link>
+                </DropdownItem>
+                <DropdownItem key="schedule" startContent={<ClockIcon className={iconClasses} />}>
+                    <Link href={`/schedule`} className='w-full h-full block '>Schedule</Link>
+                </DropdownItem>
+                <DropdownItem key="random" startContent={<ArrowPathIcon className={iconClasses} />}>
+                    <Link href={`/anime/random`} className='w-full h-full block '>Random Anime</Link>
+                </DropdownItem>
+                <DropdownItem disabled key="manga" startContent={<BookOpenIcon className={iconClasses} />}>
+                    <Link disabled href={`#`} className='w-full h-full block '>Manga (Unavailable)</Link>
+                </DropdownItem>
                             </DropdownItem>
-                            <DropdownItem key="notloghelp_and_feedback" onPress={onOpen} startContent={<FeedbackIcon className={iconClasses} />}>Help & Feedback</DropdownItem>
+                            <DropdownItem key="notloghelp_and_feedback" onPress={onOpenModalOne} startContent={<FeedbackIcon className={iconClasses} />}>Help & Feedback</DropdownItem>
                             <DropdownItem key="settings" startContent={<SettingsIcon className={iconClasses} />}>
                                 <Link href={`/settings`} className='w-full h-full block '>Settings</Link>
                             </DropdownItem>
                         </DropdownMenu>
                     )}
                 </Dropdown>
-                <Feedbackform isOpen={isOpen} onOpen={onOpen} onOpenChange={onOpenChange} />
+                <Feedbackform isOpen={isOpenModalOne} onOpen={onOpenModalOne} onOpenChange={onOpenChangeOne} />
             </div>
         </motion.nav>
     )
